@@ -1,0 +1,25 @@
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	# Northflank health check target.
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	# The MCP endpoint itself is unauthenticated, so the only way in is a
+	# long random path segment: https://<domain>/<MCP_URL_SECRET>/mcp
+	# handle_path strips /<secret>, so the upstream sees plain /mcp.
+	handle_path /{$MCP_URL_SECRET}/* {
+		reverse_proxy 127.0.0.1:8765 {
+			header_up Host {upstream_hostport}
+			flush_interval -1
+		}
+	}
+
+	handle {
+		respond "not found" 404
+	}
+}

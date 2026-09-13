@@ -1,0 +1,35 @@
+# Telegram MCP + Caddy (secret-path auth) in one container for Northflank.
+# Build context = repo root of your fork of chigwell/telegram-mcp.
+FROM caddy:2-alpine AS caddybin
+
+FROM python:3.13-alpine
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    MCP_TRANSPORT=http \
+    MCP_HOST=127.0.0.1 \
+    MCP_PORT=8765 \
+    XDG_CONFIG_HOME=/app/.caddy \
+    XDG_DATA_HOME=/app/.caddy
+
+WORKDIR /app
+
+COPY --from=caddybin /usr/bin/caddy /usr/local/bin/caddy
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY main.py sanitize.py ./
+COPY telegram_mcp ./telegram_mcp
+COPY northflank/Caddyfile /etc/caddy/Caddyfile
+COPY northflank/entrypoint.sh /usr/local/bin/entrypoint.sh
+
+RUN chmod +x /usr/local/bin/entrypoint.sh && \
+    adduser -D -u 1000 appuser && \
+    mkdir -p /app/.caddy /app/data/transcripts && \
+    chown -R appuser:appuser /app
+
+USER appuser
+EXPOSE 8080
+CMD ["/usr/local/bin/entrypoint.sh"]
