@@ -1,0 +1,24 @@
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	# Obot reaches this container by its bridge IP, which telegram-mcp's Host
+	# check would reject. Rewrite Host to the loopback upstream it accepts.
+	# Auth is done by the Obot gateway, so no secret path here.
+	handle /mcp* {
+		reverse_proxy 127.0.0.1:8765 {
+			header_up Host {upstream_hostport}
+			flush_interval -1
+		}
+	}
+
+	handle {
+		respond "not found" 404
+	}
+}
